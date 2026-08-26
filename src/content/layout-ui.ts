@@ -5,12 +5,6 @@ export interface LayoutInspectorController {
   destroy(): void
 }
 
-function text(value: string): HTMLSpanElement {
-  const span = document.createElement('span')
-  span.textContent = value
-  return span
-}
-
 function detail(node: LayoutNode): string {
   if (node.kind === 'grid') {
     const columns = node.columns ? `${node.columns} cols` : 'grid'
@@ -22,6 +16,11 @@ function detail(node: LayoutNode): string {
 }
 
 export function createLayoutInspector(shadowRoot: ShadowRoot): LayoutInspectorController {
+  const content = shadowRoot.querySelector<HTMLElement>('.viewport-debugger__content')
+  if (!content) {
+    return { refresh() {}, destroy() {} }
+  }
+
   const section = document.createElement('section')
   section.className = 'viewport-debugger__layout'
 
@@ -65,11 +64,10 @@ export function createLayoutInspector(shadowRoot: ShadowRoot): LayoutInspectorCo
   flexGroup.append(flexLabel, flexList)
   body.append(gridGroup, flexGroup, empty)
   section.append(trigger, body)
-  shadowRoot.appendChild(section)
+  content.appendChild(section)
 
   const overlay = createLayoutOverlay()
   let open = false
-  let nodes: LayoutNode[] = []
 
   function renderItem(node: LayoutNode, list: HTMLElement) {
     const item = document.createElement('button')
@@ -78,7 +76,7 @@ export function createLayoutInspector(shadowRoot: ShadowRoot): LayoutInspectorCo
 
     const name = document.createElement('span')
     name.className = 'viewport-debugger__layout-item-name'
-    name.append(text(node.selector))
+    name.textContent = node.selector
 
     const info = document.createElement('span')
     info.className = 'viewport-debugger__layout-item-info'
@@ -88,7 +86,7 @@ export function createLayoutInspector(shadowRoot: ShadowRoot): LayoutInspectorCo
     item.title = node.selector
     item.addEventListener('click', (event) => {
       event.stopPropagation()
-      document.querySelectorAll('.viewport-debugger__layout-item.is-selected').forEach((el) => el.classList.remove('is-selected'))
+      section.querySelectorAll('.viewport-debugger__layout-item.is-selected').forEach((el) => el.classList.remove('is-selected'))
       item.classList.add('is-selected')
       overlay.highlight(node)
     })
@@ -97,7 +95,7 @@ export function createLayoutInspector(shadowRoot: ShadowRoot): LayoutInspectorCo
   }
 
   function refresh() {
-    nodes = scanLayoutNodes()
+    const nodes = scanLayoutNodes()
     gridList.replaceChildren()
     flexList.replaceChildren()
 
