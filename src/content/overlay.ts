@@ -63,7 +63,19 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
 
   const breakpointName = document.createElement('span')
   breakpointName.className = 'viewport-debugger__breakpoint-name'
-  breakpointButton.appendChild(breakpointName)
+
+  const breakpointWarning = document.createElement('span')
+  breakpointWarning.className = 'viewport-debugger__breakpoint-warning'
+  breakpointWarning.textContent = '!'
+  breakpointWarning.setAttribute('aria-hidden', 'true')
+  breakpointWarning.title = 'Default breakpoints: no breakpoints were detected in this site'
+
+  const breakpointChevron = document.createElement('span')
+  breakpointChevron.className = 'viewport-debugger__breakpoint-chevron'
+  breakpointChevron.textContent = '⌄'
+  breakpointChevron.setAttribute('aria-hidden', 'true')
+
+  breakpointButton.append(breakpointName, breakpointWarning, breakpointChevron)
 
   const meta = document.createElement('span')
   meta.className = 'viewport-debugger__meta'
@@ -72,6 +84,16 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
   breakpointList.className = 'viewport-debugger__breakpoints'
   breakpointList.hidden = true
   breakpointList.setAttribute('aria-label', 'Breakpoints')
+
+  const breakpointNotice = document.createElement('div')
+  breakpointNotice.className = 'viewport-debugger__breakpoint-notice'
+  const noticeIcon = document.createElement('span')
+  noticeIcon.className = 'viewport-debugger__breakpoint-notice-icon'
+  noticeIcon.textContent = '!'
+  noticeIcon.setAttribute('aria-hidden', 'true')
+  const noticeText = document.createElement('span')
+  noticeText.textContent = 'Default breakpoints — no breakpoints were detected in this site.'
+  breakpointNotice.append(noticeIcon, noticeText)
 
   infoRow.append(size, breakpointButton, meta)
   content.append(infoRow, breakpointList)
@@ -98,6 +120,10 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
 
   function renderBreakpointList(activeName: string) {
     breakpointList.replaceChildren()
+
+    if (breakpointConfig.source === 'default') {
+      breakpointList.appendChild(breakpointNotice)
+    }
 
     const sorted = [...breakpointConfig.breakpoints].sort((a, b) => a.minWidth - b.minWidth)
     for (const breakpoint of sorted) {
@@ -126,8 +152,19 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
   function update() {
     const info = getViewportInfo()
     const state = getBreakpointState(info.width, breakpointConfig.breakpoints)
+    const usingDefaults = breakpointConfig.source === 'default'
+
     size.textContent = `${info.width} × ${info.height} px`
     breakpointName.textContent = info.breakpoint
+    breakpointWarning.hidden = !usingDefaults
+    breakpointWarning.title = usingDefaults
+      ? 'Default breakpoints: no breakpoints were detected in this site'
+      : ''
+    breakpointButton.setAttribute(
+      'aria-label',
+      usingDefaults ? 'Show default breakpoints' : 'Show breakpoints',
+    )
+
     const next = state.next ? ` · ${state.distanceToNext}px → ${state.next.name}` : ''
     meta.textContent = ` · DPR ${info.devicePixelRatio}${next}`
     renderBreakpointList(info.breakpoint)
