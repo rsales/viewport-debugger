@@ -49,6 +49,9 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
   const content = document.createElement('div')
   content.className = 'viewport-debugger__content'
 
+  const infoRow = document.createElement('div')
+  infoRow.className = 'viewport-debugger__info'
+
   const size = document.createElement('strong')
   size.className = 'viewport-debugger__size'
 
@@ -60,10 +63,7 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
 
   const breakpointName = document.createElement('span')
   breakpointName.className = 'viewport-debugger__breakpoint-name'
-  const breakpointChevron = document.createElement('span')
-  breakpointChevron.className = 'viewport-debugger__breakpoint-chevron'
-  breakpointChevron.textContent = '⌄'
-  breakpointButton.append(breakpointName, breakpointChevron)
+  breakpointButton.appendChild(breakpointName)
 
   const meta = document.createElement('span')
   meta.className = 'viewport-debugger__meta'
@@ -73,7 +73,8 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
   breakpointList.hidden = true
   breakpointList.setAttribute('aria-label', 'Breakpoints')
 
-  content.append(size, breakpointButton, meta, breakpointList)
+  infoRow.append(size, breakpointButton, meta)
+  content.append(infoRow, breakpointList)
   panel.append(title, content)
   shadowRoot.append(style, panel)
   document.documentElement.appendChild(host)
@@ -119,6 +120,7 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
     breakpointList.hidden = !open
     breakpointButton.setAttribute('aria-expanded', String(open))
     breakpointButton.classList.toggle('is-open', open)
+    if (positionReady) place()
   }
 
   function update() {
@@ -127,7 +129,7 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
     size.textContent = `${info.width} × ${info.height} px`
     breakpointName.textContent = info.breakpoint
     const next = state.next ? ` · ${state.distanceToNext}px → ${state.next.name}` : ''
-    meta.textContent = `DPR ${info.devicePixelRatio}${next}`
+    meta.textContent = ` · DPR ${info.devicePixelRatio}${next}`
     renderBreakpointList(info.breakpoint)
   }
 
