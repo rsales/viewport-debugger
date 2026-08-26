@@ -48,12 +48,32 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
 
   const content = document.createElement('div')
   content.className = 'viewport-debugger__content'
+
   const size = document.createElement('strong')
   size.className = 'viewport-debugger__size'
+
+  const breakpointButton = document.createElement('button')
+  breakpointButton.type = 'button'
+  breakpointButton.className = 'viewport-debugger__breakpoint-trigger'
+  breakpointButton.setAttribute('aria-expanded', 'false')
+  breakpointButton.setAttribute('aria-label', 'Show breakpoints')
+
+  const breakpointName = document.createElement('span')
+  breakpointName.className = 'viewport-debugger__breakpoint-name'
+  const breakpointChevron = document.createElement('span')
+  breakpointChevron.className = 'viewport-debugger__breakpoint-chevron'
+  breakpointChevron.textContent = '⌄'
+  breakpointButton.append(breakpointName, breakpointChevron)
+
   const meta = document.createElement('span')
   meta.className = 'viewport-debugger__meta'
-  content.append(size, meta)
 
+  const breakpointList = document.createElement('div')
+  breakpointList.className = 'viewport-debugger__breakpoints'
+  breakpointList.hidden = true
+  breakpointList.setAttribute('aria-label', 'Breakpoints')
+
+  content.append(size, breakpointButton, meta, breakpointList)
   panel.append(title, content)
   shadowRoot.append(style, panel)
   document.documentElement.appendChild(host)
@@ -61,6 +81,7 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
   let visible = false
   let positionReady = false
   let breakpointConfig = config
+  let breakpointsOpen = false
 
   function getViewportInfo(): ViewportInfo {
     const width = Math.max(0, Math.round(window.innerWidth))
@@ -74,13 +95,46 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
     }
   }
 
+  function renderBreakpointList(activeName: string) {
+    breakpointList.replaceChildren()
+
+    const sorted = [...breakpointConfig.breakpoints].sort((a, b) => a.minWidth - b.minWidth)
+    for (const breakpoint of sorted) {
+      const item = document.createElement('div')
+      item.className = 'viewport-debugger__breakpoint-item'
+      if (breakpoint.name === activeName) item.classList.add('is-active')
+
+      const name = document.createElement('span')
+      name.textContent = breakpoint.name
+      const width = document.createElement('strong')
+      width.textContent = `${breakpoint.minWidth}px`
+
+      item.append(name, width)
+      breakpointList.appendChild(item)
+    }
+  }
+
+  function setBreakpointsOpen(open: boolean) {
+    breakpointsOpen = open
+    breakpointList.hidden = !open
+    breakpointButton.setAttribute('aria-expanded', String(open))
+    breakpointButton.classList.toggle('is-open', open)
+  }
+
   function update() {
     const info = getViewportInfo()
     const state = getBreakpointState(info.width, breakpointConfig.breakpoints)
     size.textContent = `${info.width} × ${info.height} px`
+    breakpointName.textContent = info.breakpoint
     const next = state.next ? ` · ${state.distanceToNext}px → ${state.next.name}` : ''
-    meta.textContent = `${info.breakpoint} · DPR ${info.devicePixelRatio}${next}`
+    meta.textContent = `DPR ${info.devicePixelRatio}${next}`
+    renderBreakpointList(info.breakpoint)
   }
+
+  breakpointButton.addEventListener('click', (event) => {
+    event.stopPropagation()
+    setBreakpointsOpen(!breakpointsOpen)
+  })
 
   function applyVisibility() {
     const shouldShow = visible && positionReady
@@ -146,10 +200,6 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
         fy = Math.min(1, Math.max(0, position.y))
       }
 
-      // display:none gives the panel a zero-sized bounding rect. At the
-      // default top-right position (x=1), that makes the initial placement
-      // wrong after a hard reload. Keep the host invisible but measurable while
-      // calculating the real panel dimensions, then restore the desired state.
       host.hidden = false
       host.style.display = 'block'
       host.style.visibility = 'hidden'
