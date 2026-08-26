@@ -5,14 +5,19 @@ export interface LayoutInspectorController {
   destroy(): void
 }
 
+function formatGap(columnGap?: string, rowGap?: string): string {
+  const column = columnGap ?? '0px'
+  const row = rowGap ?? column
+  return column === row ? `gap ${column}` : `gap ${column} / ${row}`
+}
+
 function detail(node: LayoutNode): string {
   if (node.kind === 'grid') {
     const columns = node.columns ? `${node.columns} cols` : 'grid'
-    const gap = node.columnGap === node.rowGap ? node.columnGap : `${node.columnGap} / ${node.rowGap}`
-    return `${columns} · gap ${gap}`
+    return `${columns} · ${formatGap(node.columnGap, node.rowGap)}`
   }
 
-  return `${node.direction ?? 'row'} · gap ${node.columnGap === node.rowGap ? node.columnGap : `${node.columnGap}/${node.rowGap}`}`
+  return `${node.direction ?? 'row'} · ${formatGap(node.columnGap, node.rowGap)}`
 }
 
 export function createLayoutInspector(shadowRoot: ShadowRoot): LayoutInspectorController {
