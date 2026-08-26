@@ -1,6 +1,7 @@
 import { DEFAULT_BREAKPOINTS } from '../shared/breakpoints'
 import type { ExtensionMessage, SiteBreakpointConfig } from '../shared/types'
 import { detectBreakpoints } from './breakpoint-detector'
+import { createLayoutInspector } from './layout-ui'
 import { createOverlay } from './overlay'
 
 const BREAKPOINT_STORAGE_KEY = 'siteBreakpoints'
@@ -58,6 +59,10 @@ function setEnabled(overlay: ReturnType<typeof createOverlay>, enabled: boolean)
 chrome.storage.local.get({ enabled: true }, (result) => {
   loadSiteBreakpoints((config) => {
     const overlay = createOverlay(config)
+    const host = document.getElementById('viewport-debugger-host')
+    const shadowRoot = host?.shadowRoot
+    const layoutInspector = shadowRoot ? createLayoutInspector(shadowRoot) : null
+
     setEnabled(overlay, result.enabled !== false)
 
     chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
@@ -76,5 +81,7 @@ chrome.storage.local.get({ enabled: true }, (result) => {
         })
       }
     })
+
+    window.addEventListener('resize', () => layoutInspector?.refresh(), { passive: true })
   })
 })
