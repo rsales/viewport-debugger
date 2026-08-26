@@ -69,13 +69,18 @@
   padding: 9px;
 }
 
+/* Closed state: viewport size, breakpoint and DPR share one row. */
 .viewport-debugger__info {
-  display: grid;
-  gap: 3px;
+  min-height: 22px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
 }
 
 .viewport-debugger__size {
-  display: block;
+  display: inline;
+  flex: 0 0 auto;
   color: #ffb066;
   font-size: 15px;
   font-weight: 600;
@@ -83,12 +88,15 @@
   letter-spacing: -0.01em;
 }
 
+/* The breakpoint name itself is the accordion trigger. */
 .viewport-debugger__breakpoint-trigger {
-  width: max-content;
-  max-width: 100%;
+  width: auto;
+  flex: 0 0 auto;
   margin: 0;
-  padding: 0;
+  padding: 1px 0 2px;
   border: 0;
+  border-bottom: 1px solid #8f8f98;
+  border-radius: 0;
   background: transparent;
   color: #b8b8bf;
   display: inline-flex;
@@ -96,57 +104,61 @@
   gap: 3px;
   font: inherit;
   font-size: 10px;
-  line-height: 14px;
+  line-height: 1.1;
   text-align: left;
   cursor: pointer;
 }
 
 .viewport-debugger__breakpoint-trigger:hover {
   color: #f7f7f8;
+  border-bottom-color: #d6d6dc;
 }
 
 .viewport-debugger__breakpoint-name {
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 2px;
+  color: inherit;
 }
 
-.viewport-debugger__breakpoint-trigger::after {
-  content: '⌄';
+.viewport-debugger__breakpoint-chevron {
   color: #77777f;
   font-size: 10px;
+  line-height: 1;
+  transform: rotate(0deg);
   transition: transform 120ms ease;
 }
 
-.viewport-debugger__breakpoint-trigger.is-open::after {
+.viewport-debugger__breakpoint-trigger.is-open .viewport-debugger__breakpoint-chevron {
   transform: rotate(180deg);
 }
 
 .viewport-debugger__meta {
-  color: #77777f;
-  font-size: 9px;
-  line-height: 12px;
+  display: inline;
+  flex: 0 0 auto;
+  margin: 0;
+  color: #8f8f98;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
 
+/* Accordion content. It is closed by default and opens below the info row. */
 .viewport-debugger__breakpoints {
   display: grid;
-  gap: 1px;
-  margin-top: 8px;
-  padding-top: 7px;
+  gap: 2px;
+  margin: 8px -9px -9px;
+  padding: 8px 9px 9px;
   border-top: 1px solid #3b3b45;
+  background: #2d2d34;
 }
 
 .viewport-debugger__breakpoint-item {
-  min-height: 24px;
+  min-height: 28px;
   padding: 0 6px;
-  border-radius: 3px;
+  border-radius: 5px;
   color: #8f8f98;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 8px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .viewport-debugger__breakpoint-item strong {
@@ -156,12 +168,13 @@
 }
 
 .viewport-debugger__breakpoint-item.is-active {
-  background: #33333b;
+  background: #45454f;
   color: #f7f7f8;
 }
 
 .viewport-debugger__breakpoint-item.is-active strong {
   color: #ffb066;
+  font-weight: 600;
 }
 
 .viewport-debugger.closed .viewport-debugger__title {
