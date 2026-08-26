@@ -2,6 +2,11 @@
   all: initial;
 }
 
+/* Shadow DOM reset: the breakpoint panel uses the native hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
 .viewport-debugger {
   position: fixed;
   left: auto;
