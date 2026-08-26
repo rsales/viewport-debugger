@@ -32,9 +32,6 @@ function countTracks(value: string): number | undefined {
 }
 
 function normalizeGap(value: string): string {
-  // Browsers expose `normal` for the default flex/grid gap. For the inspector,
-  // make the effective value explicit instead of showing a CSS keyword that
-  // does not communicate the actual spacing to the user.
   return !value || value === 'normal' ? '0px' : value
 }
 
@@ -117,6 +114,41 @@ export function createLayoutOverlay(): {
     marker = null
   }
 
+  function createGridLayer(style: CSSStyleDeclaration, columns?: number, rows?: number): HTMLDivElement | null {
+    if (!columns || columns < 1 || !style.gridTemplateColumns || style.gridTemplateColumns === 'none') return null
+
+    const layer = document.createElement('div')
+    layer.style.cssText = [
+      'position:absolute',
+      'inset:0',
+      'display:grid',
+      `grid-template-columns:${style.gridTemplateColumns}`,
+      style.gridTemplateRows && style.gridTemplateRows !== 'none'
+        ? `grid-template-rows:${style.gridTemplateRows}`
+        : 'grid-template-rows:1fr',
+      `column-gap:${style.columnGap}`,
+      `row-gap:${style.rowGap}`,
+      'pointer-events:none',
+    ].join(';')
+
+    const rowCount = rows && rows > 0 ? rows : 1
+    const cellCount = columns * rowCount
+
+    for (let index = 0; index < cellCount; index += 1) {
+      const cell = document.createElement('div')
+      cell.style.cssText = [
+        'min-width:0',
+        'min-height:0',
+        'box-sizing:border-box',
+        'background:rgba(0,179,176,.09)',
+        'border:1px solid rgba(0,179,176,.30)',
+      ].join(';')
+      layer.appendChild(cell)
+    }
+
+    return layer
+  }
+
   function highlight(node: LayoutNode | null) {
     clear()
     if (!node) return
@@ -128,11 +160,16 @@ export function createLayoutOverlay(): {
       'pointer-events:none',
       'box-sizing:border-box',
       'border:1px solid rgba(0,179,176,.9)',
-      'background:rgba(0,179,176,.10)',
+      'background:transparent',
+      'overflow:hidden',
     ].join(';')
 
     if (node.kind === 'grid') {
-      marker.style.backgroundImage = 'repeating-linear-gradient(to right, rgba(0,179,176,.16) 0, rgba(0,179,176,.16) 1px, transparent 1px, transparent 8.3333%)'
+      const style = getComputedStyle(node.element)
+      const gridLayer = createGridLayer(style, node.columns, node.rows)
+      if (gridLayer) marker.appendChild(gridLayer)
+    } else {
+      marker.style.background = 'rgba(0,179,176,.08)'
     }
 
     root.appendChild(marker)
