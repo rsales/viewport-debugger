@@ -1,6 +1,7 @@
 import { DEFAULT_BREAKPOINTS } from '../shared/breakpoints'
 import type { ExtensionMessage, SiteBreakpointConfig } from '../shared/types'
 import { detectBreakpoints } from './breakpoint-detector'
+import { createGridOverlay } from './grid-overlay'
 import { createOverlay } from './overlay'
 
 const BREAKPOINT_STORAGE_KEY = 'siteBreakpoints'
@@ -51,18 +52,35 @@ function loadSiteBreakpoints(callback: (config: SiteBreakpointConfig) => void) {
   })
 }
 
-function setEnabled(overlay: ReturnType<typeof createOverlay>, enabled: boolean) {
+function setEnabled(
+  overlay: ReturnType<typeof createOverlay>,
+  grid: ReturnType<typeof createGridOverlay>,
+  enabled: boolean,
+) {
   overlay.setVisible(enabled)
+  grid.setVisible(enabled && gridEnabled)
 }
+
+let gridEnabled = true
 
 chrome.storage.local.get({ enabled: true }, (result) => {
   loadSiteBreakpoints((config) => {
     const overlay = createOverlay(config)
-    setEnabled(overlay, result.enabled !== false)
+    const grid = createGridOverlay({ columns: 12, gutter: 24, margin: 24 })
+    setEnabled(overlay, grid, result.enabled !== false)
+
+    window.addEventListener('keydown', (event) => {
+      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.key.toLowerCase() !== 'g') return
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+
+      event.preventDefault()
+      gridEnabled = !gridEnabled
+      grid.setVisible(result.enabled !== false && gridEnabled)
+    })
 
     chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
       if (message?.type === 'SET_ENABLED' && typeof message.enabled === 'boolean') {
-        setEnabled(overlay, message.enabled)
+        setEnabled(overlay, grid, message.enabled)
       }
 
       if (message?.type === 'SET_BREAKPOINTS' && message.config) {
