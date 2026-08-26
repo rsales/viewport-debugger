@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { DEFAULT_BREAKPOINTS } from '../shared/breakpoints'
-import type { Breakpoint, SiteBreakpointConfig } from '../shared/types'
+import type { Breakpoint, BreakpointMapping, SiteBreakpointConfig } from '../shared/types'
 
 const BREAKPOINT_STORAGE_KEY = 'siteBreakpoints'
 
@@ -10,6 +10,7 @@ const error = ref('')
 const origin = ref('')
 const source = ref<SiteBreakpointConfig['source']>('default')
 const breakpoints = ref<Breakpoint[]>([])
+const expandedIds = ref<string[]>([])
 
 function getSiteKey(): string {
   return origin.value
@@ -37,6 +38,21 @@ function load() {
   })
 }
 
+function toggleExpanded(id: string) {
+  expandedIds.value = expandedIds.value.includes(id)
+    ? expandedIds.value.filter((item) => item !== id)
+    : [...expandedIds.value, id]
+}
+
+function isExpanded(id: string): boolean {
+  return expandedIds.value.includes(id)
+}
+
+function getMappingCount(mapping?: BreakpointMapping): number {
+  if (!mapping) return 0
+  return [mapping.cssVariable, mapping.mediaQuery].filter(Boolean).length
+}
+
 function saveBreakpoints() {
   error.value = ''
 
@@ -46,6 +62,10 @@ function saveBreakpoints() {
       ...breakpoint,
       name: breakpoint.name.trim(),
       minWidth: Math.max(0, Number(breakpoint.minWidth)),
+      mapping: breakpoint.mapping && {
+        cssVariable: breakpoint.mapping.cssVariable?.trim() || undefined,
+        mediaQuery: breakpoint.mapping.mediaQuery?.trim() || undefined,
+      },
     }))
     .sort((a, b) => a.minWidth - b.minWidth)
 
@@ -70,34 +90,34 @@ function saveBreakpoints() {
         const tabId = tabs[0]?.id
         if (tabId === undefined) return
 
-        chrome.tabs.sendMessage(
-          tabId,
-          { type: 'SET_BREAKPOINTS', config },
-          () => {
-            // Restricted pages can still keep the configuration in storage.
-            void chrome.runtime.lastError
-          },
-        )
+        chrome.tabs.sendMessage(tabId, { type: 'SET_BREAKPOINTS', config }, () => {
+          void chrome.runtime.lastError
+        })
       })
     })
   })
 }
 
 function addBreakpoint() {
+  const id = `custom-${Date.now()}`
   breakpoints.value.push({
-    id: `custom-${Date.now()}`,
+    id,
     name: 'custom',
     minWidth: 1440,
   })
+  expandedIds.value = [...expandedIds.value, id]
 }
 
 function removeBreakpoint(index: number) {
+  const id = breakpoints.value[index]?.id
   breakpoints.value.splice(index, 1)
+  if (id) expandedIds.value = expandedIds.value.filter((item) => item !== id)
 }
 
 function resetToDefault() {
   source.value = 'default'
-  breakpoints.value = [...DEFAULT_BREAKPOINTS]
+  breakpoints.value = DEFAULT_BREAKPOINTS.map((breakpoint) => ({ ...breakpoint }))
+  expandedIds.value = []
 }
 
 function toggle() {
@@ -158,12 +178,62 @@ onMounted(load)
       </div>
 
       <div class="breakpoint-list">
-        <div v-for="(breakpoint, index) in breakpoints" :key="breakpoint.id" class="breakpoint-row">
-          <input v-model="breakpoint.name" aria-label="Breakpoint name" />
-          <input v-model.number="breakpoint.minWidth" type="number" min="0" step="1" aria-label="Minimum width" />
-          <span>px</span>
-          <button type="button" class="remove" aria-label="Remove breakpoint" @click="removeBreakpoint(index)">×</button>
-        </div>
+        <article
+          v-for="(breakpoint, index) in breakpoints"
+          :key="breakpoint.id"
+          class="breakpoint"
+          :class="{ 'breakpoint--expanded': isExpanded(breakpoint.id) }"
+        >
+          <button type="button" class="breakpoint__header" @click="toggleExpanded(breakpoint.id)">
+            <span class="chevron" :class="{ 'chevron--open': isExpanded(breakpoint.id) }">›</span>
+            <span class="breakpoint__name">{{ breakpoint.name }}</span>
+            <span class="breakpoint__width">{{ breakpoint.minWidth }}px</span>
+            <span v-if="getMappingCount(breakpoint.mapping)" class="mapping-badge">
+              {{ getMappingCount(breakpoint.mapping) }} mapped
+            </span>
+          </button>
+
+          <div v-if="isExpanded(breakpoint.id)" class="breakpoint__details">
+            <label>
+              <span>Name</span>
+              <input v-model="breakpoint.name" aria-label="Breakpoint name" />
+            </label>
+            <label>
+              <span>Min width</span>
+              <div class="input-with-unit">
+                <input v-model.number="breakpoint.minWidth" type="number" min="0" step="1" aria-label="Minimum width" />
+                <em>px</em>
+              </div>
+            </label>
+
+            <div class="mapping">
+              <div class="mapping__heading">
+                <span>Code mapping</span>
+                <small>{{ getMappingCount(breakpoint.mapping) }} mapped</small>
+              </div>
+              <label>
+                <span>CSS variable</span>
+                <input
+                  v-model="breakpoint.mapping!.cssVariable"
+                  placeholder="--breakpoint-md"
+                  aria-label="CSS variable mapping"
+                />
+              </label>
+              <label>
+                <span>Media query</span>
+                <input
+                  v-model="breakpoint.mapping!.mediaQuery"
+                  placeholder="(min-width: 768px)"
+                  aria-label="Media query mapping"
+                />
+              </label>
+            </div>
+
+            <button type="button" class="remove-button" @click="removeBreakpoint(index)">
+              Remove breakpoint
+            </button>
+          </div>
+        </article>
       </div>
 
       <div class="breakpoint-actions">
@@ -203,11 +273,26 @@ h1 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .source { color: #ffb066; font-size: 10px; text-transform: capitalize; }
 .breakpoint-list { display: grid; gap: 5px; }
-.breakpoint-row { display: grid; grid-template-columns: 1fr 72px 18px 22px; align-items: center; gap: 5px; }
-.breakpoint-row input { width: 100%; height: 26px; padding: 0 7px; border: 1px solid #303036; border-radius: 5px; outline: 0; background: #111113; color: #f7f7f8; font-size: 11px; }
-.breakpoint-row span { color: #77777f; font-size: 10px; }
-.remove { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #77777f; cursor: pointer; }
-.remove:hover { background: #2a2a2f; color: #fff; }
+.breakpoint { overflow: hidden; border: 1px solid #303036; border-radius: 6px; background: #111113; }
+.breakpoint__header { width: 100%; min-height: 34px; padding: 0 8px; border: 0; background: transparent; color: #f7f7f8; display: grid; grid-template-columns: 14px 1fr auto auto; align-items: center; gap: 6px; text-align: left; cursor: pointer; }
+.breakpoint__header:hover { background: #19191d; }
+.chevron { color: #77777f; font-size: 16px; line-height: 1; transition: transform 120ms ease; }
+.chevron--open { transform: rotate(90deg); }
+.breakpoint__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 600; }
+.breakpoint__width { color: #ffb066; font-size: 10px; font-variant-numeric: tabular-nums; }
+.mapping-badge { padding: 3px 5px; border-radius: 4px; background: #243332; color: #74d7d1; font-size: 9px; }
+.breakpoint__details { padding: 10px; border-top: 1px solid #303036; display: grid; gap: 8px; }
+.breakpoint__details label, .mapping label { display: grid; gap: 4px; }
+.breakpoint__details label > span, .mapping label > span { color: #77777f; font-size: 9px; }
+.breakpoint__details input { width: 100%; height: 27px; padding: 0 7px; border: 1px solid #303036; border-radius: 5px; outline: 0; background: #18181b; color: #f7f7f8; font-size: 10px; }
+.input-with-unit { display: grid; grid-template-columns: 1fr 24px; align-items: center; gap: 5px; }
+.input-with-unit em { color: #77777f; font-size: 9px; font-style: normal; }
+.mapping { margin-top: 2px; padding-top: 8px; border-top: 1px solid #28282d; display: grid; gap: 7px; }
+.mapping__heading { display: flex; align-items: center; justify-content: space-between; }
+.mapping__heading span { color: #b8b8bf; font-size: 10px; font-weight: 600; }
+.mapping__heading small { color: #66666d; font-size: 9px; }
+.remove-button { justify-self: start; padding: 0; border: 0; background: transparent; color: #a66; font-size: 9px; cursor: pointer; }
+.remove-button:hover { color: #ff9b9b; }
 .breakpoint-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .text-button, .save-button { height: 26px; padding: 0 8px; border: 1px solid #303036; border-radius: 5px; background: #111113; color: #b8b8bf; font-size: 10px; cursor: pointer; }
 .save-button { margin-left: auto; background: #f7f7f8; border-color: #f7f7f8; color: #111113; font-weight: 600; }
