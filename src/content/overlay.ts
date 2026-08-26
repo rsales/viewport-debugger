@@ -1,5 +1,5 @@
-import { getBreakpoint } from '../shared/breakpoints'
-import type { ViewportInfo } from '../shared/types'
+import { getBreakpoint, getBreakpointState, DEFAULT_BREAKPOINTS } from '../shared/breakpoints'
+import type { Breakpoint, SiteBreakpointConfig, ViewportInfo } from '../shared/types'
 import styles from './styles.css?inline'
 
 const HOST_ID = 'viewport-debugger-host'
@@ -14,10 +14,14 @@ interface PanelPosition {
 
 export interface ViewportOverlay {
   setVisible(visible: boolean): void
+  setBreakpoints(config: SiteBreakpointConfig): void
   update(): void
 }
 
-export function createOverlay(): ViewportOverlay {
+export function createOverlay(config: SiteBreakpointConfig = {
+  source: 'default',
+  breakpoints: DEFAULT_BREAKPOINTS,
+}): ViewportOverlay {
   const existing = document.getElementById(HOST_ID)
 
   if (existing) existing.remove()
@@ -28,7 +32,6 @@ export function createOverlay(): ViewportOverlay {
   host.style.display = 'none'
 
   const shadowRoot = host.attachShadow({ mode: 'open' })
-
   const style = document.createElement('style')
   style.textContent = styles
 
@@ -68,6 +71,7 @@ export function createOverlay(): ViewportOverlay {
 
   let visible = false
   let positionReady = false
+  let breakpointConfig = config
 
   function getViewportInfo(): ViewportInfo {
     const width = Math.max(0, Math.round(window.innerWidth))
@@ -78,14 +82,21 @@ export function createOverlay(): ViewportOverlay {
       width,
       height,
       devicePixelRatio,
-      breakpoint: getBreakpoint(width),
+      breakpoint: getBreakpoint(width, breakpointConfig.breakpoints).name,
     }
   }
 
   function update() {
     const info = getViewportInfo()
+    const state = getBreakpointState(info.width, breakpointConfig.breakpoints)
+
     size.textContent = `${info.width} × ${info.height} px`
-    meta.textContent = `${info.breakpoint} · DPR ${info.devicePixelRatio}`
+
+    const next = state.next
+      ? ` · ${state.distanceToNext}px → ${state.next.name}`
+      : ''
+
+    meta.textContent = `${info.breakpoint} · DPR ${info.devicePixelRatio}${next}`
   }
 
   function applyVisibility() {
@@ -99,8 +110,11 @@ export function createOverlay(): ViewportOverlay {
     applyVisibility()
   }
 
-  // Store position as a fraction of the free viewport space. This keeps the
-  // panel near the same relative location when the browser is resized.
+  function setBreakpoints(nextConfig: SiteBreakpointConfig) {
+    breakpointConfig = nextConfig
+    update()
+  }
+
   let fx = 1
   let fy = 0
 
@@ -117,21 +131,8 @@ export function createOverlay(): ViewportOverlay {
     const free = getFreeSpace()
 
     return {
-      left: Math.min(
-        PANEL_PADDING + free.width,
-        Math.max(PANEL_PADDING, left),
-      ),
-      top: Math.min(
-        PANEL_PADDING + free.height,
-        Math.max(PANEL_PADDING, top),
-      ),
-    }
-  }
-
-  function readPosition(): PanelPosition {
-    return {
-      x: fx,
-      y: fy,
+      left: Math.min(PANEL_PADDING + free.width, Math.max(PANEL_PADDING, left)),
+      top: Math.min(PANEL_PADDING + free.height, Math.max(PANEL_PADDING, top)),
     }
   }
 
@@ -144,7 +145,7 @@ export function createOverlay(): ViewportOverlay {
 
   function persistPosition() {
     chrome.storage.local.set({
-      [POSITION_STORAGE_KEY]: readPosition(),
+      [POSITION_STORAGE_KEY]: { x: fx, y: fy } satisfies PanelPosition,
     })
   }
 
@@ -167,18 +168,11 @@ export function createOverlay(): ViewportOverlay {
       (result) => {
         const position = result[POSITION_STORAGE_KEY] as PanelPosition | undefined
 
-        if (
-          position &&
-          Number.isFinite(position.x) &&
-          Number.isFinite(position.y)
-        ) {
+        if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) {
           fx = Math.min(1, Math.max(0, position.x))
           fy = Math.min(1, Math.max(0, position.y))
         }
 
-        // The host stays hidden until the stored position has been restored.
-        // This prevents the panel from briefly appearing at the CSS fallback
-        // position while chrome.storage is resolving asynchronously.
         place()
         positionReady = true
         applyVisibility()
@@ -213,14 +207,10 @@ export function createOverlay(): ViewportOverlay {
     const dx = event.clientX - startX
     const dy = event.clientY - startY
 
-    if (!moved && Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD) {
-      moved = true
-    }
-
+    if (!moved && Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD) moved = true
     if (!moved) return
 
     const position = clampPosition(originLeft + dx, originTop + dy)
-
     panel.style.left = `${position.left}px`
     panel.style.top = `${position.top}px`
     panel.style.right = 'auto'
@@ -234,9 +224,7 @@ export function createOverlay(): ViewportOverlay {
     active = false
     panel.classList.remove('dragging')
 
-    if (title.hasPointerCapture(event.pointerId)) {
-      title.releasePointerCapture(event.pointerId)
-    }
+    if (title.hasPointerCapture(event.pointerId)) title.releasePointerCapture(event.pointerId)
 
     if (moved) {
       persistPosition()
@@ -262,6 +250,7 @@ export function createOverlay(): ViewportOverlay {
 
   return {
     setVisible,
+    setBreakpoints,
     update,
   }
 }
