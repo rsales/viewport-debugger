@@ -5,6 +5,12 @@ import styles from './styles.css?inline'
 const HOST_ID = 'viewport-debugger-host'
 const PANEL_PADDING = 14
 const DRAG_THRESHOLD = 3
+const POSITION_STORAGE_KEY = 'panelPosition'
+
+interface PanelPosition {
+  x: number
+  y: number
+}
 
 export interface ViewportOverlay {
   setVisible(visible: boolean): void
@@ -79,13 +85,12 @@ export function createOverlay(): ViewportOverlay {
   }
 
   function setVisible(visible: boolean) {
-    // Use an explicit display value in addition to `hidden`. This makes the
-    // visibility contract unambiguous even when a host page has global CSS
-    // that affects hidden/custom elements.
     host.hidden = !visible
     host.style.display = visible ? 'block' : 'none'
   }
 
+  // Store position as a fraction of the free viewport space. This keeps the
+  // panel near the same relative location when the browser is resized.
   let fx = 1
   let fy = 0
 
@@ -98,21 +103,65 @@ export function createOverlay(): ViewportOverlay {
     }
   }
 
+  function clampPosition(left: number, top: number) {
+    const free = getFreeSpace()
+
+    return {
+      left: Math.min(
+        PANEL_PADDING + free.width,
+        Math.max(PANEL_PADDING, left),
+      ),
+      top: Math.min(
+        PANEL_PADDING + free.height,
+        Math.max(PANEL_PADDING, top),
+      ),
+    }
+  }
+
   function storePosition(left: number, top: number) {
     const free = getFreeSpace()
+
     fx = Math.min(1, Math.max(0, (left - PANEL_PADDING) / free.width))
     fy = Math.min(1, Math.max(0, (top - PANEL_PADDING) / free.height))
+
+    const position: PanelPosition = { x: fx, y: fy }
+
+    chrome.storage.local.set({
+      [POSITION_STORAGE_KEY]: position,
+    })
   }
 
   function place() {
     const free = getFreeSpace()
-    const left = PANEL_PADDING + fx * free.width
-    const top = PANEL_PADDING + fy * free.height
+    const position = clampPosition(
+      PANEL_PADDING + fx * free.width,
+      PANEL_PADDING + fy * free.height,
+    )
 
-    panel.style.left = `${left}px`
-    panel.style.top = `${top}px`
+    panel.style.left = `${position.left}px`
+    panel.style.top = `${position.top}px`
     panel.style.right = 'auto'
     panel.style.bottom = 'auto'
+  }
+
+  function restorePosition() {
+    chrome.storage.local.get(
+      { [POSITION_STORAGE_KEY]: { x: 1, y: 0 } },
+      (result) => {
+        const position = result[POSITION_STORAGE_KEY] as PanelPosition | undefined
+
+        if (
+          position &&
+          Number.isFinite(position.x) &&
+          Number.isFinite(position.y)
+        ) {
+          fx = Math.min(1, Math.max(0, position.x))
+          fy = Math.min(1, Math.max(0, position.y))
+        }
+
+        place()
+      },
+    )
   }
 
   let active = false
@@ -148,21 +197,13 @@ export function createOverlay(): ViewportOverlay {
 
     if (!moved) return
 
-    const free = getFreeSpace()
-    const left = Math.min(
-      PANEL_PADDING + free.width,
-      Math.max(PANEL_PADDING, originLeft + dx),
-    )
-    const top = Math.min(
-      PANEL_PADDING + free.height,
-      Math.max(PANEL_PADDING, originTop + dy),
-    )
+    const position = clampPosition(originLeft + dx, originTop + dy)
 
-    panel.style.left = `${left}px`
-    panel.style.top = `${top}px`
+    panel.style.left = `${position.left}px`
+    panel.style.top = `${position.top}px`
     panel.style.right = 'auto'
     panel.style.bottom = 'auto'
-    storePosition(left, top)
+    storePosition(position.left, position.top)
   })
 
   function release(event: PointerEvent) {
@@ -191,8 +232,8 @@ export function createOverlay(): ViewportOverlay {
 
   window.visualViewport?.addEventListener('resize', update, { passive: true })
 
-  place()
   update()
+  restorePosition()
 
   return {
     setVisible,
