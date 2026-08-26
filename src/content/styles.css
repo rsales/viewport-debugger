@@ -2,7 +2,6 @@
   all: initial;
 }
 
-/* Shadow DOM reset: the breakpoint panel uses the native hidden attribute. */
 [hidden] {
   display: none !important;
 }
@@ -74,7 +73,6 @@
   padding: 9px;
 }
 
-/* Closed state: viewport size, breakpoint and DPR share one row. */
 .viewport-debugger__info {
   min-height: 22px;
   display: flex;
@@ -93,7 +91,6 @@
   letter-spacing: -0.01em;
 }
 
-/* The breakpoint name itself is the accordion trigger. */
 .viewport-debugger__breakpoint-trigger {
   width: auto;
   flex: 0 0 auto;
@@ -123,6 +120,25 @@
   color: inherit;
 }
 
+.viewport-debugger__breakpoint-warning,
+.viewport-debugger__breakpoint-notice-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border-radius: 50%;
+  background: #8a5a1f;
+  color: #ffd7a3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.viewport-debugger__breakpoint-warning {
+  margin-left: 1px;
+}
+
 .viewport-debugger__breakpoint-chevron {
   color: #77777f;
   font-size: 10px;
@@ -144,7 +160,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Accordion content. It is closed by default and opens below the info row. */
 .viewport-debugger__breakpoints {
   display: grid;
   gap: 2px;
@@ -152,6 +167,24 @@
   padding: 8px 9px 9px;
   border-top: 1px solid #3b3b45;
   background: #2d2d34;
+}
+
+.viewport-debugger__breakpoint-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0 0 5px;
+  padding: 7px 6px;
+  border: 1px solid #604c2f;
+  border-radius: 5px;
+  background: #352f27;
+  color: #c9b08f;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.viewport-debugger__breakpoint-notice-icon {
+  margin-top: 1px;
 }
 
 .viewport-debugger__breakpoint-item {
