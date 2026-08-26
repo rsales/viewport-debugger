@@ -12,6 +12,13 @@ const source = ref<SiteBreakpointConfig['source']>('default')
 const breakpoints = ref<Breakpoint[]>([])
 const expandedIds = ref<string[]>([])
 
+function withMapping(breakpoint: Breakpoint): Breakpoint {
+  return {
+    ...breakpoint,
+    mapping: { ...(breakpoint.mapping ?? {}) },
+  }
+}
+
 function getSiteKey(): string {
   return origin.value
 }
@@ -32,7 +39,7 @@ function load() {
         const profiles = result[BREAKPOINT_STORAGE_KEY] as Record<string, SiteBreakpointConfig>
         const profile = origin.value ? profiles[getSiteKey()] : undefined
         source.value = profile?.source ?? 'default'
-        breakpoints.value = [...(profile?.breakpoints ?? DEFAULT_BREAKPOINTS)]
+        breakpoints.value = (profile?.breakpoints ?? DEFAULT_BREAKPOINTS).map(withMapping)
       },
     )
   })
@@ -84,7 +91,7 @@ function saveBreakpoints() {
     profiles[getSiteKey()] = config
     chrome.storage.local.set({ [BREAKPOINT_STORAGE_KEY]: profiles }, () => {
       source.value = 'custom'
-      breakpoints.value = normalized
+      breakpoints.value = normalized.map(withMapping)
 
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabId = tabs[0]?.id
@@ -100,11 +107,11 @@ function saveBreakpoints() {
 
 function addBreakpoint() {
   const id = `custom-${Date.now()}`
-  breakpoints.value.push({
+  breakpoints.value.push(withMapping({
     id,
     name: 'custom',
     minWidth: 1440,
-  })
+  }))
   expandedIds.value = [...expandedIds.value, id]
 }
 
@@ -116,7 +123,7 @@ function removeBreakpoint(index: number) {
 
 function resetToDefault() {
   source.value = 'default'
-  breakpoints.value = DEFAULT_BREAKPOINTS.map((breakpoint) => ({ ...breakpoint }))
+  breakpoints.value = DEFAULT_BREAKPOINTS.map(withMapping)
   expandedIds.value = []
 }
 
