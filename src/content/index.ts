@@ -18,14 +18,17 @@ function normalizeConfig(config: SiteBreakpointConfig): SiteBreakpointConfig {
   }
 }
 
-function loadSiteBreakpoints(
-  callback: (config: SiteBreakpointConfig) => void,
-) {
+function isUsableStoredProfile(profile: SiteBreakpointConfig | undefined): boolean {
+  if (!profile?.breakpoints?.length) return false
+  return profile.source === 'custom' || profile.source === 'detected' || profile.source === 'default'
+}
+
+function loadSiteBreakpoints(callback: (config: SiteBreakpointConfig) => void) {
   chrome.storage.local.get({ [BREAKPOINT_STORAGE_KEY]: {} }, (result) => {
     const profiles = result[BREAKPOINT_STORAGE_KEY] as Record<string, SiteBreakpointConfig>
     const existing = profiles[getSiteKey()]
 
-    if (existing?.breakpoints?.length) {
+    if (isUsableStoredProfile(existing)) {
       callback(normalizeConfig(existing))
       return
     }
