@@ -86,6 +86,7 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
     const shouldShow = visible && positionReady
     host.hidden = !shouldShow
     host.style.display = shouldShow ? 'block' : 'none'
+    host.style.visibility = shouldShow ? 'visible' : 'hidden'
   }
 
   function setVisible(nextVisible: boolean) {
@@ -144,6 +145,15 @@ export function createOverlay(config: SiteBreakpointConfig = { source: 'default'
         fx = Math.min(1, Math.max(0, position.x))
         fy = Math.min(1, Math.max(0, position.y))
       }
+
+      // display:none gives the panel a zero-sized bounding rect. At the
+      // default top-right position (x=1), that makes the initial placement
+      // wrong after a hard reload. Keep the host invisible but measurable while
+      // calculating the real panel dimensions, then restore the desired state.
+      host.hidden = false
+      host.style.display = 'block'
+      host.style.visibility = 'hidden'
+
       place()
       positionReady = true
       applyVisibility()
