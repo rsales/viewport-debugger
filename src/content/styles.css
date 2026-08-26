@@ -46,7 +46,8 @@
   background: #24242b;
 }
 
-.viewport-debugger__title:focus-visible {
+.viewport-debugger__title:focus-visible,
+.viewport-debugger__breakpoint-trigger:focus-visible {
   outline: 2px solid #00b3b0;
   outline-offset: -2px;
 }
@@ -68,12 +69,8 @@
   padding: 9px;
 }
 
-.viewport-debugger__row {
-  display: grid;
-  gap: 5px;
-}
-
 .viewport-debugger__size {
+  display: block;
   color: #ffb066;
   font-size: 15px;
   font-weight: 600;
@@ -81,10 +78,81 @@
   letter-spacing: -0.01em;
 }
 
-.viewport-debugger__meta {
-  color: #9a9aa6;
+.viewport-debugger__breakpoint-trigger {
+  width: 100%;
+  margin-top: 7px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #d6d6dc;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
   font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.viewport-debugger__breakpoint-trigger:hover {
+  color: #f7f7f8;
+}
+
+.viewport-debugger__breakpoint-name {
+  color: #b8b8bf;
+}
+
+.viewport-debugger__breakpoint-chevron {
+  color: #77777f;
+  font-size: 12px;
+  transition: transform 120ms ease;
+}
+
+.viewport-debugger__breakpoint-trigger.is-open .viewport-debugger__breakpoint-chevron {
+  transform: rotate(180deg);
+}
+
+.viewport-debugger__meta {
+  display: block;
+  margin-top: 2px;
+  color: #77777f;
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
+}
+
+.viewport-debugger__breakpoints {
+  display: grid;
+  gap: 2px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid #3b3b45;
+}
+
+.viewport-debugger__breakpoint-item {
+  min-height: 24px;
+  padding: 0 6px;
+  border-radius: 3px;
+  color: #8f8f98;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+}
+
+.viewport-debugger__breakpoint-item strong {
+  color: #b8b8bf;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewport-debugger__breakpoint-item.is-active {
+  background: #33333b;
+  color: #f7f7f8;
+}
+
+.viewport-debugger__breakpoint-item.is-active strong {
+  color: #ffb066;
 }
 
 .viewport-debugger.closed .viewport-debugger__title {
