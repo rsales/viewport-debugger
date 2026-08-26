@@ -31,6 +31,13 @@ function countTracks(value: string): number | undefined {
   return tokens?.length || undefined
 }
 
+function normalizeGap(value: string): string {
+  // Browsers expose `normal` for the default flex/grid gap. For the inspector,
+  // make the effective value explicit instead of showing a CSS keyword that
+  // does not communicate the actual spacing to the user.
+  return !value || value === 'normal' ? '0px' : value
+}
+
 function getDirectSelector(element: HTMLElement): string {
   const parts: string[] = []
   let current: HTMLElement | null = element
@@ -69,13 +76,13 @@ export function scanLayoutNodes(): LayoutNode[] {
     if (kind === 'grid') {
       node.columns = countTracks(style.gridTemplateColumns)
       node.rows = countTracks(style.gridTemplateRows)
-      node.columnGap = style.columnGap
-      node.rowGap = style.rowGap
+      node.columnGap = normalizeGap(style.columnGap)
+      node.rowGap = normalizeGap(style.rowGap)
     } else {
       node.direction = style.flexDirection
       node.wrap = style.flexWrap
-      node.columnGap = style.columnGap
-      node.rowGap = style.rowGap
+      node.columnGap = normalizeGap(style.columnGap)
+      node.rowGap = normalizeGap(style.rowGap)
     }
 
     nodes.push(node)
