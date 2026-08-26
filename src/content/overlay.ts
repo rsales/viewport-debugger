@@ -24,7 +24,8 @@ export function createOverlay(): ViewportOverlay {
 
   const host = document.createElement('div')
   host.id = HOST_ID
-  host.style.display = 'block'
+  host.hidden = true
+  host.style.display = 'none'
 
   const shadowRoot = host.attachShadow({ mode: 'open' })
 
@@ -65,6 +66,9 @@ export function createOverlay(): ViewportOverlay {
   shadowRoot.append(style, panel)
   document.documentElement.appendChild(host)
 
+  let visible = false
+  let positionReady = false
+
   function getViewportInfo(): ViewportInfo {
     const width = Math.max(0, Math.round(window.innerWidth))
     const height = Math.max(0, Math.round(window.innerHeight))
@@ -84,9 +88,15 @@ export function createOverlay(): ViewportOverlay {
     meta.textContent = `${info.breakpoint} · DPR ${info.devicePixelRatio}`
   }
 
-  function setVisible(visible: boolean) {
-    host.hidden = !visible
-    host.style.display = visible ? 'block' : 'none'
+  function applyVisibility() {
+    const shouldShow = visible && positionReady
+    host.hidden = !shouldShow
+    host.style.display = shouldShow ? 'block' : 'none'
+  }
+
+  function setVisible(nextVisible: boolean) {
+    visible = nextVisible
+    applyVisibility()
   }
 
   // Store position as a fraction of the free viewport space. This keeps the
@@ -118,16 +128,23 @@ export function createOverlay(): ViewportOverlay {
     }
   }
 
+  function readPosition(): PanelPosition {
+    return {
+      x: fx,
+      y: fy,
+    }
+  }
+
   function storePosition(left: number, top: number) {
     const free = getFreeSpace()
 
     fx = Math.min(1, Math.max(0, (left - PANEL_PADDING) / free.width))
     fy = Math.min(1, Math.max(0, (top - PANEL_PADDING) / free.height))
+  }
 
-    const position: PanelPosition = { x: fx, y: fy }
-
+  function persistPosition() {
     chrome.storage.local.set({
-      [POSITION_STORAGE_KEY]: position,
+      [POSITION_STORAGE_KEY]: readPosition(),
     })
   }
 
@@ -159,7 +176,12 @@ export function createOverlay(): ViewportOverlay {
           fy = Math.min(1, Math.max(0, position.y))
         }
 
+        // The host stays hidden until the stored position has been restored.
+        // This prevents the panel from briefly appearing at the CSS fallback
+        // position while chrome.storage is resolving asynchronously.
         place()
+        positionReady = true
+        applyVisibility()
       },
     )
   }
@@ -203,6 +225,7 @@ export function createOverlay(): ViewportOverlay {
     panel.style.top = `${position.top}px`
     panel.style.right = 'auto'
     panel.style.bottom = 'auto'
+    storePosition(position.left, position.top)
   })
 
   function release(event: PointerEvent) {
@@ -216,8 +239,7 @@ export function createOverlay(): ViewportOverlay {
     }
 
     if (moved) {
-      const rect = panel.getBoundingClientRect()
-      storePosition(rect.left, rect.top)
+      persistPosition()
       return
     }
 
@@ -229,7 +251,7 @@ export function createOverlay(): ViewportOverlay {
   title.addEventListener('pointercancel', release)
 
   window.addEventListener('resize', () => {
-    place()
+    if (positionReady) place()
     update()
   }, { passive: true })
 
