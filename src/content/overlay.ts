@@ -203,7 +203,6 @@ export function createOverlay(): ViewportOverlay {
     panel.style.top = `${position.top}px`
     panel.style.right = 'auto'
     panel.style.bottom = 'auto'
-    storePosition(position.left, position.top)
   })
 
   function release(event: PointerEvent) {
@@ -216,10 +215,14 @@ export function createOverlay(): ViewportOverlay {
       title.releasePointerCapture(event.pointerId)
     }
 
-    if (!moved) {
-      const collapsed = panel.classList.toggle('closed')
-      title.setAttribute('aria-expanded', String(!collapsed))
+    if (moved) {
+      const rect = panel.getBoundingClientRect()
+      storePosition(rect.left, rect.top)
+      return
     }
+
+    const collapsed = panel.classList.toggle('closed')
+    title.setAttribute('aria-expanded', String(!collapsed))
   }
 
   title.addEventListener('pointerup', release)
