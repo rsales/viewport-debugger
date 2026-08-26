@@ -13,14 +13,16 @@ const breakpoints = ref<Breakpoint[]>([])
 const expandedIds = ref<string[]>([])
 
 function withMapping(breakpoint: Breakpoint): Breakpoint {
-  return {
-    ...breakpoint,
-    mapping: { ...(breakpoint.mapping ?? {}) },
-  }
+  return { ...breakpoint, mapping: { ...(breakpoint.mapping ?? {}) } }
 }
 
 function getSiteKey(): string {
   return origin.value
+}
+
+function isUsableStoredProfile(profile: SiteBreakpointConfig | undefined): boolean {
+  if (!profile?.breakpoints?.length) return false
+  return profile.source === 'custom' || profile.source === 'detected' || profile.source === 'default'
 }
 
 function load() {
@@ -37,7 +39,8 @@ function load() {
       (result) => {
         enabled.value = result.enabled !== false
         const profiles = result[BREAKPOINT_STORAGE_KEY] as Record<string, SiteBreakpointConfig>
-        const profile = origin.value ? profiles[getSiteKey()] : undefined
+        const stored = origin.value ? profiles[getSiteKey()] : undefined
+        const profile = isUsableStoredProfile(stored) ? stored : undefined
         source.value = profile?.source ?? 'default'
         breakpoints.value = (profile?.breakpoints ?? DEFAULT_BREAKPOINTS).map(withMapping)
       },
@@ -81,10 +84,7 @@ function saveBreakpoints() {
     return
   }
 
-  const config: SiteBreakpointConfig = {
-    source: 'custom',
-    breakpoints: normalized,
-  }
+  const config: SiteBreakpointConfig = { source: 'custom', breakpoints: normalized }
 
   chrome.storage.local.get({ [BREAKPOINT_STORAGE_KEY]: {} }, (result) => {
     const profiles = result[BREAKPOINT_STORAGE_KEY] as Record<string, SiteBreakpointConfig>
@@ -96,7 +96,6 @@ function saveBreakpoints() {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabId = tabs[0]?.id
         if (tabId === undefined) return
-
         chrome.tabs.sendMessage(tabId, { type: 'SET_BREAKPOINTS', config }, () => {
           void chrome.runtime.lastError
         })
@@ -107,11 +106,7 @@ function saveBreakpoints() {
 
 function addBreakpoint() {
   const id = `custom-${Date.now()}`
-  breakpoints.value.push(withMapping({
-    id,
-    name: 'custom',
-    minWidth: 1440,
-  }))
+  breakpoints.value.push(withMapping({ id, name: 'custom', minWidth: 1440 }))
   expandedIds.value = [...expandedIds.value, id]
 }
 
@@ -138,7 +133,6 @@ function toggle() {
         error.value = 'No active tab found.'
         return
       }
-
       chrome.tabs.sendMessage(tabId, { type: 'SET_ENABLED', enabled: enabled.value }, () => {
         if (chrome.runtime.lastError) error.value = 'This page does not allow extensions.'
       })
@@ -164,13 +158,7 @@ onMounted(load)
         <strong>Viewport overlay</strong>
         <p>Show the current viewport size while resizing the browser.</p>
       </div>
-      <button
-        type="button"
-        class="switch"
-        :class="{ 'switch--on': enabled }"
-        :aria-pressed="enabled"
-        @click="toggle"
-      >
+      <button type="button" class="switch" :class="{ 'switch--on': enabled }" :aria-pressed="enabled" @click="toggle">
         <span class="switch__thumb" />
       </button>
     </section>
@@ -185,12 +173,7 @@ onMounted(load)
       </div>
 
       <div class="breakpoint-list">
-        <article
-          v-for="(breakpoint, index) in breakpoints"
-          :key="breakpoint.id"
-          class="breakpoint"
-          :class="{ 'breakpoint--expanded': isExpanded(breakpoint.id) }"
-        >
+        <article v-for="(breakpoint, index) in breakpoints" :key="breakpoint.id" class="breakpoint">
           <button type="button" class="breakpoint__header" @click="toggleExpanded(breakpoint.id)">
             <span class="chevron" :class="{ 'chevron--open': isExpanded(breakpoint.id) }">›</span>
             <span class="breakpoint__name">{{ breakpoint.name }}</span>
@@ -220,25 +203,15 @@ onMounted(load)
               </div>
               <label>
                 <span>CSS variable</span>
-                <input
-                  v-model="breakpoint.mapping!.cssVariable"
-                  placeholder="--breakpoint-md"
-                  aria-label="CSS variable mapping"
-                />
+                <input v-model="breakpoint.mapping!.cssVariable" placeholder="--breakpoint-md" aria-label="CSS variable mapping" />
               </label>
               <label>
                 <span>Media query</span>
-                <input
-                  v-model="breakpoint.mapping!.mediaQuery"
-                  placeholder="(min-width: 768px)"
-                  aria-label="Media query mapping"
-                />
+                <input v-model="breakpoint.mapping!.mediaQuery" placeholder="(min-width: 768px)" aria-label="Media query mapping" />
               </label>
             </div>
 
-            <button type="button" class="remove-button" @click="removeBreakpoint(index)">
-              Remove breakpoint
-            </button>
+            <button type="button" class="remove-button" @click="removeBreakpoint(index)">Remove breakpoint</button>
           </div>
         </article>
       </div>
@@ -251,10 +224,7 @@ onMounted(load)
     </section>
 
     <p v-if="error" class="popup__error" role="alert">{{ error }}</p>
-
-    <footer class="popup__footer">
-      <span>Chrome Extension · Manifest V3</span>
-    </footer>
+    <footer class="popup__footer"><span>Chrome Extension · Manifest V3</span></footer>
   </main>
 </template>
 
