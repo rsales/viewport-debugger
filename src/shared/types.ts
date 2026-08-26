@@ -1,9 +1,15 @@
 export type BreakpointSource = 'detected' | 'default' | 'custom'
 
+export interface BreakpointMapping {
+  cssVariable?: string
+  mediaQuery?: string
+}
+
 export interface Breakpoint {
   id: string
   name: string
   minWidth: number
+  mapping?: BreakpointMapping
 }
 
 export interface SiteBreakpointConfig {
