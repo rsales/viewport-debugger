@@ -18,6 +18,8 @@ export function createOverlay(): ViewportOverlay {
 
   const host = document.createElement('div')
   host.id = HOST_ID
+  host.style.display = 'block'
+
   const shadowRoot = host.attachShadow({ mode: 'open' })
 
   const style = document.createElement('style')
@@ -77,11 +79,13 @@ export function createOverlay(): ViewportOverlay {
   }
 
   function setVisible(visible: boolean) {
+    // Use an explicit display value in addition to `hidden`. This makes the
+    // visibility contract unambiguous even when a host page has global CSS
+    // that affects hidden/custom elements.
     host.hidden = !visible
+    host.style.display = visible ? 'block' : 'none'
   }
 
-  // Store the position as a fraction of the available space so the panel
-  // keeps its relative position when the browser is resized.
   let fx = 1
   let fy = 0
 
@@ -171,7 +175,6 @@ export function createOverlay(): ViewportOverlay {
       title.releasePointerCapture(event.pointerId)
     }
 
-    // A click without movement collapses/expands the panel.
     if (!moved) {
       const collapsed = panel.classList.toggle('closed')
       title.setAttribute('aria-expanded', String(!collapsed))
